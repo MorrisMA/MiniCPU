@@ -1,0 +1,12 @@
+
+#Created by Constraints Editor (xc6slx9-ftg256-3) - 2017/05/28
+#
+NET "Clk" TNM_NET = "Clk";
+TIMESPEC TS_Clk = PERIOD "Clk" 10.250 ns HIGH 50 %;     # XC6SLX4-3
+#TIMESPEC TS_Clk = PERIOD "Clk" 10.000 ns HIGH 50%;     # XC6SLX9-3
+#
+################################################################################
+#
+INST "MiniCPU_Core" AREA_GROUP=Core;
+AREA_GROUP "Core" RANGE=CLOCKREGION_X0Y0:CLOCKREGION_X0Y0;
+#AREA_GROUP "Core" RANGE=CLOCKREGION_X0Y1:CLOCKREGION_X0Y1;

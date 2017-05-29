@@ -1,0 +1,387 @@
+header
+Project: MiniCPU_uPROM
+File Revision: 0001
+Author(s): Michael A. Morris
+Description: Minimal CPU for anycpu.org 8-bit Challenge
+endh
+
+--------------------------------------------------------------------------------
+--
+--  Copyright 2017 by Michael A. Morris, dba M. A. Morris & Associates
+--
+--  All rights reserved. The source code contained herein is publicly released
+--  under the terms and conditions of the GNU General Public License as conveyed
+--  in the license provided below.
+--
+--  This program is free software: you can redistribute it and/or modify it
+--  under the terms of the GNU General Public License as published by the Free
+--  Software Foundation, either version 3 of the License, or any later version.
+--
+--  This program is distributed in the hope that it will be useful, but WITHOUT
+--  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+--  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+--  more details.
+--
+--  You should have received a copy of the GNU General Public License along with
+--  this program.  If not, see <http://www.gnu.org/licenses/>, or write to
+--
+--  Free Software Foundation, Inc.
+--  51 Franklin Street, Fifth Floor
+--  Boston, MA  02110-1301 USA
+--
+--  Further, no use of this source code is permitted in any form or means
+--  without inclusion of this banner prominently in any derived works.
+--
+--  Michael A. Morris <morrisma_at_mchsi_dot_com>
+--  164 Raleigh Way
+--  Huntsville, AL 35811
+--  USA
+--
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- Revision History:
+--------------------------------------------------------------------------------
+--
+--  0001    17E21   MAM     Initial release.
+--
+--------------------------------------------------------------------------------
+--  Comments
+--------------------------------------------------------------------------------
+--
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--
+--------------------------------------------------------------------------------
+-- MiniCPU MPC Instruction definitions
+--------------------------------------------------------------------------------
+
+BRV0        .asm    0       -- Branch via 0
+BRV1        .asm    1       -- Branch via 1
+BRV2        .asm    2       -- Branch via 2
+BRV3        .asm    3       -- Branch via 3
+BTH         .asm    4       -- Branch if T High
+BTL         .asm    5       -- Branch if T Low
+FTCH        .asm    6       -- Fetch next instruction
+BMW         .asm    7       -- Branch multi-way (align on % 8 boundaries)
+
+--------------------------------------------------------------------------------
+-- ROM ( output ) Field definitions
+--------------------------------------------------------------------------------
+
+Inst        .def    4       -- Instruction
+BA          .def    8       -- Branch Address
+NA_Cntl     .def    8       -- Next Address Control Field
+IO_Cntl     .def    3       -- I/O Cycle Control Field
+Op_Cntl     .def    1       -- ALU Operation Control Field
+DI_Cntl     .def    3       -- Data Input Mux Control Field
+DO_Cntl     .def    5       -- Data Output Mux Control Field
+XP_Cntl     .def    4       -- Workspace Pointer Control Field
+YP_Cntl     .def    3       -- Non-Local Pointer Control Field
+AU_Cntl     .def    5       -- ALU Control Field
+CC_Sel      .def    3       -- Condition Code Select
+IAck        .def    1       -- Interrupt Acknowledge
+ 
+--------------------------------------------------------------------------------
+-- Constant definitions
+--------------------------------------------------------------------------------
+
+--  Next Address Control Definitions
+--                         L IXYM KN C
+--------------------------------------------------------------------------------
+Vec     .equ    140     -- 1_0001_10_0; Vec:  NA <= 0 +  K + 0; I <= NA
+Inc     .equ    193     -- 1_1000_00_1; Inc:  NA <= I +  0 + 1; I <= NA
+Rel     .equ    197     -- 1_1000_10_1; Rel:  NA <= I +  K + 1; I <= NA
+Rtn     .equ    133     -- 1_0000_10_1; Rtn:  NA <= 0 +  K + 1; I <= NA
+--------------------------------------------------------------------------------
+Psh     .equ     34     -- 0_0100_01_0; Psh:  NA <= X + ~0 + 0;
+Pop     .equ     33     -- 0_0100_00_1; Pop:  NA <= X +  0 + 1;
+--------------------------------------------------------------------------------
+Lcl     .equ     36     -- 0_0100_10_0; BP:   NA <= X +  K + 0;
+Non     .equ     20     -- 0_0010_10_0; BP:   NA <= Y +  K + 0;
+--------------------------------------------------------------------------------
+Mar     .equ      8     -- 0_0001_00_0; Mar:  NA <= M +  0 + 0;
+Nxt     .equ      9     -- 0_0001_00_1; Nxt:  NA <= M +  0 + 1;
+--------------------------------------------------------------------------------
+
+--  IO_Cntl Definitions
+
+IF      .equ    4       -- Instruction Fetch
+RD      .equ    2       -- Read
+WR      .equ    1       -- Write
+
+--  DI_Cntl Definitions
+
+LdKH    .equ    4
+LdKL    .equ    2 
+ClrK    .equ    1 
+
+--  DO_Cntl Definitions
+
+IPH     .equ    16
+IPL     .equ    8
+YPH     .equ    4
+YPL     .equ    2
+ALU     .equ    1
+
+--  XP_Cntl Definitions
+
+AdjX    .equ    8
+IncX    .equ    4
+Ld_N    .equ    2
+Ld_X    .equ    1
+
+--  YP_Cntl Definitions
+
+SwpY    .equ    4
+St_Y    .equ    2
+Ld_Y    .equ    1
+
+--  Direct Instructions
+
+PFX     .equ    0       -- KI<=((ClrK) ? {12'b0,MDI[3:0]} : {KI[11:0],MDI[3:0]})
+NFX     .equ    1       -- KI<=((ClrK) ?~{12'b0,MDI[3:0]} :~{KI[11:0],MDI[3:0]})
+EXE     .equ    2       -- IR<=((MDI[7:4] == EXE) ? {1,MDI[3:0]} : {0,MDI[7:4]})
+LDK     .equ    3       -- RA<=KI
+LDL     .equ    4       -- RA<=Mem[XP + KI]
+LDN     .equ    5       -- RA<=Mem[YP + KI]
+STL     .equ    6       -- Mem[XP + KI]<=RA
+STN     .equ    7       -- Mem[YP + KI]<=RA
+LDY     .equ    8       -- YP<={Mem[XP + KI + 1],Mem[XP + KI]}
+STY     .equ    9       -- {Mem[XP + KI + 1],Mem[XP + KI]}<=YP
+BNE     .equ    10      -- IP<=IP + (~Z & KI) + 1
+BGT     .equ    11      -- IP<=IP + (~N & KI) + 1
+BNC     .equ    12      -- IP<=IP + (~C & KI) + 1
+ADJ     .equ    13      -- XP<=XP + KI
+RTS     .equ    14      -- IP<={Mem[XP + 1],Mem[XP<=XP + KI]} + 1, XP += 2
+JSR     .equ    15      -- {Mem[XP<=XP - 1],Mem[XP<=XP - 1]}<=IP
+
+--  AU_Cntl Definitions (Indirect Instructions)
+
+SWP     .equ    16      -- YP <=> YS      
+XAB     .equ    17      -- RA <=> RB
+XCH     .equ    18      -- {RA, RB} <=> XP
+LDA     .equ    19      -- A <= DI
+CLC     .equ    20      -- C <= 0   (Clear C at start of multi-precision add)
+SEC     .equ    21      -- C <= 1   (Set C at start of multi-precision subtract)
+ADC     .equ    22      -- {C, RA} <= (RA +  RB + C)
+SBC     .equ    23      -- {C, RA} <= (RA + ~RB + C)
+ROL     .equ    24      -- {C, RA} <= {RA, C}
+ASL     .equ    25      -- {C, RA} <= {RA, 0}
+ROR     .equ    26      -- {RA, C} <= {C, RA}
+ASR     .equ    27      -- {RA, C} <= {RA[7], RA}
+CPL     .equ    28      -- RA <= ~RA
+AND     .equ    29      -- RA <= RA & RB
+ORL     .equ    30      -- RA <= RA | RB      
+XOR     .equ    31      -- RA <= RA ^ RB
+
+--  CC_Sel Definitions
+
+NC      .equ    4       -- CC <= ~C
+GT      .equ    2       -- CC <= ~N <= ~RA[7]
+NE      .equ    1       -- CC <= ~Z <= |RA
+
+--  IAck Definitions
+
+Ack     .equ    1       -- CC <= 1, All conditions interpreted as Ack
+
+--------------------------------------------------------------------------------
+--
+--  Microprogram Controller Resources
+--
+--  T -   CC
+--
+--  Via[0]  -   BA, but also waits for the completion of a memory or ALU cycle
+--  Via[1]  -   Instruction Decoder, a 32 way branch
+--  Via[2]  -   Samples Vector and loads it into {KIH, KIL}
+--  Via[3]  -   Instruction Decoder, a 32 way branch with branch to Int Handler
+--
+--  MW[2:0] -   8-way branch:
+--
+--  MW = {2'b00, Int};
+--
+--  Memory Output Data Multiplexer Definitions
+--
+--  DO = ((Sel_IPH) ? IP[15:8] : 0);
+--  DO = ((Sel_IPL) ? IP[ 7:0] : 0);
+--  DO = ((Sel_YPH) ? YP[15:8] : 0);
+--  DO = ((Sel_YPL) ? YP[ 7:0] : 0);
+--  DO = ((Sel_ALU) ? RA[ 7:0] : 0);
+--
+--------------------------------------------------------------------------------
+--  Invalid Instruction - Halt         
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, DI, DO, XP, YP, AU, CC, IAck
+
+_Start:     .org    0
+_Hlt:   
+    BRV0    _Hlt
+
+--------------------------------------------------------------------------------
+-- MiniCPU Microprogram Start
+--------------------------------------------------------------------------------
+
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_Rst:
+    BRV2    _Nxt                                    -- KI <= Vector(Rst)
+
+--------------------------------------------------------------------------------
+-- 2-Way Jump Table: _Nxt and _Int; Instruction Fetch and Execute Microstate
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_Nxt:       .org    2                               -- Simple BMW (align 2)
+    BRV1    _Nxt, Inc, IF, Exe                      -- Instruction Fetch/Execute
+
+--------------------------------------------------------------------------------
+--  Interrupt Entry - NMI, IRQ
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_Int:
+    BRV2    _Psh_IL, Psh, WR,,, IPH                  -- Push IPH
+
+_Psh_IL:
+    FTCH    $, Psh, WR,,, IPL                        -- Push IPL
+--
+    FTCH    $, Vec, RD,, LdKL                        -- Read Indirect Dst Ptr Lo
+    FTCH    $, Nxt, RD,, LdKH,,,,,, Ack              -- Read Indirect Dst Ptr Hi
+--
+    BRV1    $, Vec, IF,, ClrK                        -- Instruction Fetch
+
+--------------------------------------------------------------------------------
+--  Read Word - LDY
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_RdW:
+    BMW    _Nxt, Nxt, RD,, LdKH,,, Ld_Y
+
+--------------------------------------------------------------------------------
+--  Write Word - STY
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_WrW:
+    BMW     _Nxt, Nxt, WR,, ClrK, YPH,, St_Y
+
+--------------------------------------------------------------------------------
+--  Return From Subroutine - RTS
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_Rtn:
+    FTCH    $, Pop, RD,, LdKH                        -- Pop PCH
+    BRV1    $, Rtn, IF,, ClrK                        -- Execute RTS
+
+--------------------------------------------------------------------------------
+--  Jump To Subroutine - JSR off         
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_Bsr:
+    FTCH    $, Psh, WR,,, IPL, Ld_N                  -- Psh PCL
+    BRV1    $, Rel, IF,, ClrK                        -- Instruction Fetch
+
+--------------------------------------------------------------------------------
+--  End of Microprogram Routines for Normal Instructions
+--------------------------------------------------------------------------------
+
+_End_uPgm:
+
+_IDecode:   .org    32
+
+--------------------------------------------------------------------------------
+--
+--  Start of Instruction Decode Table (Entry for each Opcode)
+--
+--------------------------------------------------------------------------------
+--  Direct Instructions 
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_PFX:
+    BRV1    _Nxt, Inc, IF
+_NFX:
+    BRV1    _Nxt, Inc, IF
+_INV:
+    BRV0    _Hlt, Mar
+_LDK:
+    BRV3    $, Inc, IF,, ClrK,,,, LDA
+_LDL:
+    BMW     _Nxt, Lcl, RD,, LdKL
+_LDN:
+    BMW     _Nxt, Non, RD,, LdKL
+_STL:
+    BMW     _Nxt, Lcl, WR,,, ALU
+_STN:
+    BMW     _Nxt, Non, WR,,, ALU
+
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_LDY:
+    BRV0    _RdW, Lcl, RD,, LdKL
+_STY:
+    BRV0    _WrW, Lcl, WR,,, YPL
+_BNE:
+    BRV1    _Nxt, Rel, IF,, ClrK,,,,, NE
+_BGT:
+    BRV1    _Nxt, Rel, IF,, ClrK,,,,, GT
+_BNC:
+    BRV1    _Nxt, Rel, IF,, ClrK,,,,, NC
+_ADJ:
+    BRV1    _Nxt, Inc, IF,,,, AdjX
+_RTS:
+    BRV0    _Rtn, Lcl, RD,, LdKL,, Ld_N
+_JSR:
+    BRV0    _Bsr, Psh, WR,,, IPH, Ld_N
+
+--------------------------------------------------------------------------------
+--  Indirect Instructions
+--------------------------------------------------------------------------------
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_SWP:
+    BRV3    $, Inc, IF,, ClrK,,, SwpY
+_XAB:
+    BRV3    $, Inc, IF,, ClrK,,,, XAB
+_XCH:
+    BRV3    $, Inc, IF,, ClrK,, Ld_X,, XCH
+_LDA:
+    BRV3    $, Inc, IF,, ClrK,,,, LDA
+_CLC:
+    BRV3    $, Inc, IF,, ClrK,,,, CLC
+_SEC:
+    BRV3    $, Inc, IF,, ClrK,,,, SEC
+_ADC:
+    BRV3    $, Inc, IF,, ClrK,,,, ADC
+_SBC:
+    BRV3    $, Inc, IF,, ClrK,,,, SBC
+
+--  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
+
+_ROL:
+    BRV3    $, Inc, IF,, ClrK,,,, ROL
+_ASL:
+    BRV3    $, Inc, IF,, ClrK,,,, ASL
+_ROR:
+    BRV3    $, Inc, IF,, ClrK,,,, ROR
+_ASR:
+    BRV3    $, Inc, IF,, ClrK,,,, ASR
+_CPL:
+    BRV3    $, Inc, IF,, ClrK,,,, CPL
+_AND:
+    BRV3    $, Inc, IF,, ClrK,,,, AND
+_ORL:
+    BRV3    $, Inc, IF,, ClrK,,,, ORL
+_XOR:
+    BRV3    $, Inc, IF,, ClrK,,,, XOR
+
+--------------------------------------------------------------------------------
+--  End of Instruction Decode Table
+--------------------------------------------------------------------------------
+
+_Last:  .org 64
+
+_end:

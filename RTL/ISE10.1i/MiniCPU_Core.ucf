@@ -1,0 +1,10 @@
+NET "Clk" TNM_NET = Clk;
+#TIMESPEC TS_Clk = PERIOD "Clk" 15.000 ns HIGH 50%;
+#TIMESPEC TS_Clk = PERIOD "Clk" 14.500 ns HIGH 50%;
+TIMESPEC TS_Clk = PERIOD "Clk" 13.750 ns HIGH 50%;
+#TIMESPEC TS_Clk = PERIOD "Clk" 12.500 ns HIGH 50%;
+#
+################################################################################
+#
+INST "MiniCPU_Core" AREA_GROUP=Core;
+AREA_GROUP Core RANGE=SLICE_X8Y36:SLICE_X23Y55;
