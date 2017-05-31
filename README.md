@@ -61,7 +61,7 @@ deallocate locally accessible variables. The subroutine return instruction
 also deallocates the allocated workspace on the stack before the return 
 address is popped from the stack. Thus, at the end of the subroutine return, 
 if the proper workspace deallocation value is provided, the workspace pointer 
-is left pointing to the base of the calling functions allocated workspace. The 
+is left pointing to the base of the calling function's allocated workspace. The 
 workspace pointer register is the base register for workspace relative 
 addressing. Instructions for loading the accumulator (or the general pointer 
 register described next), or storing the accumulator to the workspace include 
@@ -122,7 +122,7 @@ completion of all instructions except the PFX and NFX prefix instructions.**)
                                     complements the value loaded into the operand
                                     register.
     2x  - EXE   : Execute           Execute the indirect instruction whose opcode
-                                    is in the operand register.
+                                    is in the operand register. (See below.)
     3x  - LDK   : Load Constant     Load operand register into the ALU accumulator.
     4x  - LDL   : Load Local        Load accumulator from workspace pointer plus KI.
     5x  - LDN   : Load Non-local    Load accumulator from non-local pointer plus KI.
@@ -313,7 +313,7 @@ XC6SLX4-3TQG144 FPGA. The User Constraint File (UCF) in the ISE14.7i
 subdirectory sets the clock period constraint for the core to 10.25 ns, and 
 the tools report the final performance as 9.536 ns. The UCF also constrains 
 the placement into clock region X0Y0, i.e. the lower left corner of the LX4 
-device. That clock region is an area of 8 x 14 slices, or 84 total slices.
+device. That clock region is an area of 6 x 14 slices, or 84 total slices.
 
 Status
 ------
