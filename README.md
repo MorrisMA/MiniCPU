@@ -139,8 +139,8 @@ completion of all instructions except the PFX and NFX prefix instructions.**)
     Fx  - JSR   : Jump Subroutine   Push return address to the workspace and jump to
                                     subroutine relative to IP.
     20  - SWP   : Swap Pointer Stk  Swap Non-Local Pointer stack values.
-    21  - XCH   : Swap X and {A, B} Swap workspace pointer with ALU registers.
-    22  - XAB   : Swap A and B      Swap ALU registers
+    21  - XAB   : Swap A and B      Swap ALU registers
+    22  - XCH   : Swap X and {A, B} Swap workspace pointer with ALU registers.
     23  - LDA   : Load accumulator  Load accumulator from KI (LDK, LDL, LDN)
     24  - CLC   : Clear Carry       C <= 0
     25  - SEC   : Set Carry         C <= 1
@@ -179,8 +179,8 @@ instruction timing.)
     Ex  - RTS   : 3
     Fx  - JSR   : 3
     20  - SWP   : 1
-    21  - XCH   : 1
-    22  - XAB   : 1
+    21  - XAB   : 1
+    22  - XCH   : 1
     23  - LDA   : 1
     24  - CLC   : 1
     25  - SEC   : 1

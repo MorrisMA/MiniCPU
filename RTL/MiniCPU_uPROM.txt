@@ -1,6 +1,6 @@
 header
 Project: MiniCPU_uPROM
-File Revision: 0001
+File Revision: 0003
 Author(s): Michael A. Morris
 Description: Minimal CPU for anycpu.org 8-bit Challenge
 endh
@@ -45,10 +45,20 @@ endh
 --
 --  0001    17E21   MAM     Initial release.
 --
+--  0002    17F03   MAM     Added three cycle reset sequence to fetch the first
+--                          instruction after fetching the reset vector from
+--                          program memory. Corrected the encoding for Vec NAOp.
+--                          The Vec NAOp was enabling MAR and KI; it should have
+--                          only enabled KI. Added Ack signals to generate VP
+--                          during the fetch of the reset vector.
+--
+--  0003    17F04   MAM     Corrected placement of Ack signal in the interrupt
+--                          handler microroutine. Placed on line where low byte
+--                          of vector being read. Removed from previous line
+--                          where IPL was being pushed.
+--
 --------------------------------------------------------------------------------
 --  Comments
---------------------------------------------------------------------------------
---
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
@@ -89,7 +99,7 @@ IAck        .def    1       -- Interrupt Acknowledge
 --  Next Address Control Definitions
 --                         L IXYM KN C
 --------------------------------------------------------------------------------
-Vec     .equ    140     -- 1_0001_10_0; Vec:  NA <= 0 +  K + 0; I <= NA
+Vec     .equ    132     -- 1_0000_10_0; Vec:  NA <= 0 +  K + 0; I <= NA
 Inc     .equ    193     -- 1_1000_00_1; Inc:  NA <= I +  0 + 1; I <= NA
 Rel     .equ    197     -- 1_1000_10_1; Rel:  NA <= I +  K + 1; I <= NA
 Rtn     .equ    133     -- 1_0000_10_1; Rtn:  NA <= 0 +  K + 1; I <= NA
@@ -224,14 +234,17 @@ _Hlt:
 --  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
 
 _Rst:
-    BRV2    _Nxt                                    -- KI <= Vector(Rst)
+    BRV2    _Rst1, Mar, IF,, LdKL,,,,,, Ack          -- MAR <= Vector(Rst)
+_Rst1:
+    FTCH    $, Nxt, IF,, LdKH,,,,,, Ack
+    BRV1    _Nxt, Vec, IF
 
 --------------------------------------------------------------------------------
 -- 2-Way Jump Table: _Nxt and _Int; Instruction Fetch and Execute Microstate
 --------------------------------------------------------------------------------
 --  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
 
-_Nxt:       .org    2                               -- Simple BMW (align 2)
+_Nxt:       .org    4                               -- Simple BMW (align 2)
     BRV1    _Nxt, Inc, IF, Exe                      -- Instruction Fetch/Execute
 
 --------------------------------------------------------------------------------
@@ -245,7 +258,7 @@ _Int:
 _Psh_IL:
     FTCH    $, Psh, WR,,, IPL                        -- Push IPL
 --
-    FTCH    $, Vec, RD,, LdKL                        -- Read Indirect Dst Ptr Lo
+    FTCH    $, Vec, RD,, LdKL,,,,,, Ack              -- Read Indirect Dst Ptr Lo
     FTCH    $, Nxt, RD,, LdKH,,,,,, Ack              -- Read Indirect Dst Ptr Hi
 --
     BRV1    $, Vec, IF,, ClrK                        -- Instruction Fetch

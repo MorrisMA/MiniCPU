@@ -53,7 +53,15 @@
 //
 // Revision: 
 //
-//  1.00    17E20   MAM     Initial release.
+//  0.01    17E20   MAM     Initial release.
+//
+//  1.00    17F03   MAM     Modified AR next address term so that CC is a mux
+//                          select rather and an AND term with KI. Before this
+//                          change, the result of CC & KI was always zero. Also,
+//                          added BRV2 to port list, and now use BRV2 to force
+//                          the MAR to capture the interrupt vector address
+//                          when Int is asserted at the completion of interrup-
+//                          table instructions.
 //
 // Additional Comments:
 //
@@ -125,6 +133,7 @@ module MiniCPU_PCU (
     
     input   CC,                     // Conditional Branch Input Flag
     input   BRV3,                   // Interrupt or Next Instruction Select
+    input   BRV2,                   // Interrupt Vector Capture
     input   Int,                    // Unmasked Interrupt Request Input
 
     input   Rdy,                    // Ready Input
@@ -169,13 +178,13 @@ wire    CE_I;                       // Instruction Pointer Clock Enable
 //  Next Address Generator
 //
 //          L IXYM KN C   
-// Vec:  8'b1_0001_10_0;     // NA <= 0 +  K + 0; I <= NA
+// Vec:  8'b1_0000_10_0;     // NA <= 0 +  K + 0; I <= NA
 // Inc:  8'b1_1000_00_1;     // NA <= I +  0 + 1; I <= NA
 // Rel:  8'b1_1000_10_1;     // NA <= I +  K + 1; I <= NA
 // Rtn:  8'b1_0000_10_1;     // NA <= 0 +  K + 1; I <= NA
 // Psh:  8'b0_0100_01_0;     // NA <= X + ~0 + 0;
 // Pop:  8'b0_0100_00_1;     // NA <= X +  0 + 1;
-// Loc:  8'b0_0100_10_0;     // NA <= X +  K + 0;
+// Lcl:  8'b0_0100_10_0;     // NA <= X +  K + 0;
 // Non:  8'b0_0010_10_0;     // NA <= Y +  K + 0;                         
 // Nxt:  8'b0_0001_00_1;     // NA <= M +  0 + 1;
 
@@ -200,8 +209,8 @@ assign AL = ((Sel_M) ? MA  : 16'b0);
 
 //  Generate Right Address Operand
 
-assign AR = ((Sel_K) ? CC & KI : 16'b0);
-assign AR = ((Sel_N) ?  ~16'b0 : 16'b0);
+assign AR = ((Sel_K) ? ((CC) ? KI : 16'b0) : 16'b0);
+assign AR = ((Sel_N) ?  ~16'b0             : 16'b0);
 
 //  Compute Next Address
 
@@ -211,9 +220,9 @@ assign NA = (AL + AR + Ci);
 
 assign CE_M = Rdy;
 
-always @(negedge Clk)
+always @(posedge Clk)
 begin
-    if(Rst)
+    if(Rst | BRV2)
         MA <= #1 Vector;
     else if(CE_M)
         MA <= #1 NA;
@@ -226,7 +235,7 @@ assign CE_I = Rdy & ((BRV3) ? (Ld_I & ~Int) : Ld_I);
 always @(posedge Clk)
 begin
     if(Rst)
-        IP <= #1 Vector;
+        IP <= #1 ~0;
     if(CE_I)
         IP <= #1 NA;
 end

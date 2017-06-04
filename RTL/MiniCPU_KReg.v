@@ -66,6 +66,13 @@
 // 
 //  0.01    17E28   MAM     File Created
 //
+//  1.00    17F03   MAM     Removed BRV2 and Vector inputs. Pipeline operation
+//                          prevented using KI to capture vector from external
+//                          interrupt handler and simultaneously fetch and
+//                          load KI from vector location in program memory.
+//                          Capture of interrupt vector on assertion of BRV2
+//                          transferred to the MAR register in the PCU.
+//
 // Additional Comments: 
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -75,9 +82,6 @@ module MiniCPU_KReg(
     input   Clk,
     
     input   Rdy,
-    
-    input   BRV2,
-    input   [15:0] Vector,
     
     input   IF,
     input   LdKH,
@@ -97,12 +101,12 @@ assign NFX = (DI[7:4] == 4'b0001);
 
 always @(posedge Clk)
 begin
-    if(Rst | BRV2)
-        KI <= #1 Vector;
+    if(Rst)
+        KI <= #1 ~0;
     else if(Rdy & LdKH)
-        KI[15:8] <= #1 DI;
+        KI <= #1 {DI, KI[ 7:0]};
     else if(Rdy & LdKL)
-        KI[ 7:0] <= #1 DI;
+        KI <= #1 {KI[15:8], DI};
     else if(Rdy & IF) begin
         if(ClrK)
             KI <= #1 ((NFX) ? ~{ 12'h000, DI[3:0]} : DI[3:0]);

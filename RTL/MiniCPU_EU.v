@@ -80,6 +80,14 @@
 //                          own dedicated field. Four unused bits automatically
 //                          trimmed by the synthesizer.
 //
+//  1.10    17F03   MAM     Modified the uPL register to register output of the
+//                          microprogram ROM on Rst or Rdy. This allows the NA
+//                          to be presented to external memory while Rst is 
+//                          being asserted to the core. Modified Done signal to
+//                          asserted only for BRV1 or BRV3; previously asserted
+//                          on (|Via). Added VP output to signal when vector is
+//                          being read.
+//
 // Additional Comments: 
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,6 +108,7 @@ module MiniCPU_EU #(
     input   [4:0] IR,               // Instruction Register (Direct/Indirect)               
     
     output  Done,                   // Instruction Fetch, Execution Complete
+    output  reg VP,                 // Interrupt Vector Pull
     
     output  BRV3,                   // Interruptable Instruction Fetch
     output  BRV2,                   // Begin Interrupt Service, Capture Vector
@@ -163,8 +172,16 @@ wire    [ 5:0] uBA;                 // Microprogram Branch Address Field
 //  Implementation
 //
 
-assign Done = (|Via);               // Instruction Fetch, Execution Complete
+assign Done = (Via[0]);             // Instruction Fetch, Execution Complete
 
+always @(posedge Clk)
+begin
+    if(Rst)
+        VP <= #1 0;
+    else if(Rdy)
+        VP <= #1 (Ack & LdKL);
+end
+        
 assign BRV3 = (Via == 2'b11);       // Interruptable Instruction Fetch
 assign BRV2 = (Via == 2'b10);       // Begin Interrupt Service, Capture Vector
 assign BRV1 = (Via == 2'b01);       // Non-interruptable Instruction Fetch
@@ -216,9 +233,7 @@ end
 
 always @(posedge Clk)
 begin
-    if(Rst)
-        uPL <= #1 0;
-    else if(Rdy)
+    if(Rst | Rdy)
         uPL <= #1 ROM[MA];
 end
 

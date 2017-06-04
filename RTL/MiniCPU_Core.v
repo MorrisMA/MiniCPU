@@ -1,4 +1,4 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 //
 //  Minimal CPU for anycpu.com 8-bit Challenge
 // 
@@ -32,9 +32,9 @@
 //  Huntsville, AL 35811
 //  USA
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Company:         M. A. Morris & Associates 
 // Engineer:        Michael A. Morris 
 // 
@@ -53,6 +53,10 @@
 //
 //  1.00    17E22   MAM     File Created
 //
+//  1.10    17F03   MAM     Modified port list to bring out the Vector Pull
+//                          signal added to the EU. EU generates VP when the
+//                          vector is being read. 
+//
 // Additional Comments: 
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -67,6 +71,7 @@ module MiniCPU_Core #(
     input   Clk,
 
     output  Done,
+    output  VP,
 
     input   Int,
     output  Ack,
@@ -118,10 +123,10 @@ wire    C, N, Z;
 always @(*)
 begin
     casex({NC, GT, NE})
-        3'b1xx : CC <= ~C;
-        3'b01x : CC <= ~N;
-        3'b001 : CC <= ~Z;
-        3'b000 : CC <=  1;
+        3'b1xx  : CC <= ~C;
+        3'b01x  : CC <= ~N;
+        3'b001  : CC <= ~Z;
+        default : CC <=  1;
     endcase
 end
 
@@ -129,13 +134,12 @@ end
 
 always @(*)
 begin
-    casex({IPH, IPL, YPH, YPL, ALU})
-        5'b1xxxx : MDO <= IP[15:8];
-        5'b01xxx : MDO <= IP[ 7:0];
-        5'b001xx : MDO <= YP[15:8];
-        5'b0001x : MDO <= YP[ 7:0];
-        5'b00001 : MDO <= DO;
-        5'b00000 : MDO <= DO;
+    casex({IPH, IPL, YPH, YPL})
+        4'b1xxx : MDO <= IP[15:8];
+        4'b01xx : MDO <= IP[ 7:0];
+        4'b001x : MDO <= YP[15:8];
+        4'b0001 : MDO <= YP[ 7:0];
+        default : MDO <= DO;
     endcase
 end
 
@@ -151,9 +155,6 @@ MiniCPU_KReg    KR (
                     
                     .Rdy(Rdy),
                     
-                    .BRV2(BRV2),
-                    .Vector(Vector),
-
                     .IF(IF),
                     .LdKH(LdKH), 
                     .LdKL(LdKL), 
@@ -179,7 +180,9 @@ MiniCPU_EU  #(
                 .CC(CC), 
                 .IR(IR),
                 
-                .Done(Done), 
+                .Done(Done),
+                .VP(VP),
+                
                 .BRV3(BRV3), 
                 .BRV2(BRV2), 
                 .BRV1(), 
@@ -235,7 +238,8 @@ MiniCPU_PCU PC (
                 .NAOp(NAOp), 
 
                 .CC(CC), 
-                .BRV3(BRV3), 
+                .BRV3(BRV3),
+                .BRV2(BRV2),
 
                 .KI(KI), 
 
