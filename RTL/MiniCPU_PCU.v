@@ -1,4 +1,4 @@
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 //
 //  Minimal CPU for anycpu.com 8-bit Challenge
 // 
@@ -32,9 +32,9 @@
 //  Huntsville, AL 35811
 //  USA
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 `timescale 1ns / 1ps
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Company:         M. A. Morris & Associates 
 // Engineer:        Michael A. Morris 
 // 
@@ -62,6 +62,8 @@
 //                          the MAR to capture the interrupt vector address
 //                          when Int is asserted at the completion of interrup-
 //                          table instructions.
+//
+//  1.01    17F05   MAM     Passed the KI register into the XReg module.
 //
 // Additional Comments:
 //
@@ -123,7 +125,7 @@
 //  The active non-local pointer, YP, may be swapped with the shadow non-local
 //  pointer, YS, by using the swap non-local pointer (SWP) instruction.
 //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 module MiniCPU_PCU (
     input   Rst,                    // System Reset
@@ -170,7 +172,7 @@ wor     [15:0] AL, AR;              // Wired-OR busses for address operands
 wire    CE_M;                       // Memory Address Register Clock Enable
 wire    CE_I;                       // Instruction Pointer Clock Enable
 
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 //
 //  Implementation
 //
@@ -253,6 +255,7 @@ MiniCPU_XPtr    XPtr (
                     .Ld_N(Ld_N),
                     .Ld_X(Ld_X),
                     .NA(NA),
+                    .KI(KI),
                     .DI(XDI),
                     
                     .XP(XP)

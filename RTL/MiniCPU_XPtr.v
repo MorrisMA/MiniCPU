@@ -67,6 +67,9 @@
 //
 //  0.00    17E21   MAM     Initial release.
 //
+//  1.00    17F05   MAM     Added the KI port and modified to support adding KI
+//                          to XP by the AdjX control input.
+//
 // Additional Comments: 
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,6 +85,7 @@ module MiniCPU_XPtr (
     input   Ld_N,
     input   Ld_X,
     input   [15:0] NA,
+    input   [15:0] KI,
     input   [15:0] DI,
     
     output  reg [15:0] XP
@@ -101,7 +105,7 @@ begin
     else if(Rdy & Ld_X)
         XP <= #1 DI;
     else if(Rdy & (IncX | AdjX))
-        XP <= #1 XP + ((IncX) ? 16'h0001 : DI);
+        XP <= #1 XP + ((IncX) ? 16'h0001 : KI);
 end
 
 endmodule

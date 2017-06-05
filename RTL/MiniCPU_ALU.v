@@ -87,7 +87,17 @@
 //
 // Revision: 
 //
-//      0.01    17E12   Initial Creation
+//  0.01    17E12   MAM     Initial Creation
+//
+//  1.00    17F04   MAM     Added a register to capture and delay the ALU Op
+//                          value. The delay register holds the ALU operation
+//                          value until the next instruction fetch when the ALU
+//                          operation is performed using the operand data in KI.
+//                          The delayed operand register is cleared after every
+//                          instruction fetch. It is only loaded on a specific
+//                          microprogram control signal: LdOp. The value is held
+//                          in the register until the fetch of the next instruc-
+//                          tion.
 //
 // Additional Comments: 
 //
@@ -98,7 +108,10 @@ module MiniCPU_ALU(
     input   Clk,
 
     input   Rdy,
-
+    
+    input   IF,
+    input   LdOp,
+    
     input   [ 4:0] Op,
     
     input   [15:0] XP,
@@ -126,6 +139,9 @@ localparam pROR = 4'b1010;
 //  Declarations
 //
 
+reg     [4:0] dOp;
+wire    [4:0] AUOp;
+
 wire    CE;
 
 wire    [7:0] S, T, U, V, W, X, Y;
@@ -136,24 +152,38 @@ wire    C7;
 //  Implementation
 //
 
-assign CE = Rdy & Op[4];
+//  Implement ALU Operation Code Multiplexer
 
-assign T = ((Op[3:0] == pSBC) ? ~B : B);
+always @(posedge Clk)
+begin
+    if(Rst | (Rdy & IF))
+        dOp <= #1 0;
+    else if(Rdy & LdOp)
+        dOp <= #1 Op;
+end
+
+assign AUOp = ((IF) ? ((|dOp) ? dOp : Op) : 0);
+
+//  ALU Control
+
+assign CE = Rdy & AUOp[4];
+
+assign T = ((AUOp[3:0] == pSBC) ? ~B : B);
 assign {C7, S} = (A + T + C);
 
 assign U = A & B;
 assign V = A | B;
 assign W = A ^ B;
 
-assign X = ((Op[3:0] == pROL) ? {A[6:0],    C} : {A[6:0], 1'b0}); // ROL/ASL
-assign Y = ((Op[3:0] == pROR) ? {C,    A[7:1]} : {A[7], A[7:1]}); // ROR/ASR
+assign X = ((AUOp[3:0] == pROL) ? {A[6:0],    C} : {A[6:0], 1'b0}); // ROL/ASL
+assign Y = ((AUOp[3:0] == pROR) ? {C,    A[7:1]} : {A[7], A[7:1]}); // ROR/ASR
 
 always @(posedge Clk)
 begin
     if(Rst)
         C <= #1 0;
     else if(CE)
-        case(Op[3:0])
+        case(AUOp[3:0])
             4'b0100 : C <= #1 0;            // CLC
             4'b0101 : C <= #1 1;            // SEC
             4'b0110 : C <= #1 C7;           // ADC
@@ -171,7 +201,7 @@ begin
     if(Rst)
         A <= #1 0;
     else if(CE)
-        case(Op[3:0])
+        case(AUOp[3:0])
             4'b0000 : A <= #1  A;           // SWP
             4'b0001 : A <= #1  B;           // XAB
             4'b0010 : A <= #1 XP[15:8];     // XCH
@@ -196,7 +226,7 @@ begin
     if(Rst)
         B <= #1 0;
     else if(CE)
-        case(Op[3:0])
+        case(AUOp[3:0])
             4'b0001 : B <= #1 A;            // XAB
             4'b0010 : B <= #1 XP[7:0];      // XCH
             default : B <= #1 B;

@@ -1,6 +1,6 @@
 header
 Project: MiniCPU_uPROM
-File Revision: 0003
+File Revision: 0004
 Author(s): Michael A. Morris
 Description: Minimal CPU for anycpu.org 8-bit Challenge
 endh
@@ -52,10 +52,26 @@ endh
 --                          only enabled KI. Added Ack signals to generate VP
 --                          during the fetch of the reset vector.
 --
---  0003    17F04   MAM     Corrected placement of Ack signal in the interrupt
---                          handler microroutine. Placed on line where low byte
---                          of vector being read. Removed from previous line
---                          where IPL was being pushed.
+--  0003    17F05   MAM     Changed the mnemonic for BGT to BPL. More reflective
+--                          of the test: greater than implied the use of addi-
+--                          tional information not present in the test. Changed
+--                          the ALU Operation Control field signal from Exe to
+--                          LdOp. This signal loads a holding register with the
+--                          desired ALU operation code. The code will be applied
+--                          to the ALU during the instruction fetch cycle of the
+--                          following instruction. This delay allows the memory
+--                          operand to be properly captured in KI before the
+--                          ALU operation is performed. Modified all BRV1 micro-
+--                          instructions in the microprogram to clear KI. Added
+--                          IncX to the RTS microroutine, and changed the work-
+--                          space adjustment of XP by KI during RTS from Ld_N to
+--                          AdjX. RTS leaves XP pointing to the base of the
+--                          caller's workspace, which may include the calling
+--                          parameters for the subroutine call.
+--
+--  0004    17F05   MAM     Modified the interrupt handler microroutine to allow
+--                          capture of the vector in the MAR after MAR used to
+--                          push the return address onto the workspace.
 --
 --------------------------------------------------------------------------------
 --  Comments
@@ -120,6 +136,10 @@ IF      .equ    4       -- Instruction Fetch
 RD      .equ    2       -- Read
 WR      .equ    1       -- Write
 
+--  ALU Op Control Definitions
+
+LdOp    .equ    1       -- Load AU Op Delay Register
+
 --  DI_Cntl Definitions
 
 LdKH    .equ    4
@@ -160,7 +180,7 @@ STN     .equ    7       -- Mem[YP + KI]<=RA
 LDY     .equ    8       -- YP<={Mem[XP + KI + 1],Mem[XP + KI]}
 STY     .equ    9       -- {Mem[XP + KI + 1],Mem[XP + KI]}<=YP
 BNE     .equ    10      -- IP<=IP + (~Z & KI) + 1
-BGT     .equ    11      -- IP<=IP + (~N & KI) + 1
+BPL     .equ    11      -- IP<=IP + (~N & KI) + 1
 BNC     .equ    12      -- IP<=IP + (~C & KI) + 1
 ADJ     .equ    13      -- XP<=XP + KI
 RTS     .equ    14      -- IP<={Mem[XP + 1],Mem[XP<=XP + KI]} + 1, XP += 2
@@ -188,7 +208,7 @@ XOR     .equ    31      -- RA <= RA ^ RB
 --  CC_Sel Definitions
 
 NC      .equ    4       -- CC <= ~C
-GT      .equ    2       -- CC <= ~N <= ~RA[7]
+PL      .equ    2       -- CC <= ~N <= ~RA[7]
 NE      .equ    1       -- CC <= ~Z <= |RA
 
 --  IAck Definitions
@@ -237,7 +257,7 @@ _Rst:
     BRV2    _Rst1, Mar, IF,, LdKL,,,,,, Ack          -- MAR <= Vector(Rst)
 _Rst1:
     FTCH    $, Nxt, IF,, LdKH,,,,,, Ack
-    BRV1    _Nxt, Vec, IF
+    BRV1    _Nxt, Vec, IF,, ClrK
 
 --------------------------------------------------------------------------------
 -- 2-Way Jump Table: _Nxt and _Int; Instruction Fetch and Execute Microstate
@@ -245,7 +265,7 @@ _Rst1:
 --  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
 
 _Nxt:       .org    4                               -- Simple BMW (align 2)
-    BRV1    _Nxt, Inc, IF, Exe                      -- Instruction Fetch/Execute
+    BRV1    _Nxt, Inc, IF,, ClrK                    -- Instruction Fetch/Execute
 
 --------------------------------------------------------------------------------
 --  Interrupt Entry - NMI, IRQ
@@ -253,15 +273,15 @@ _Nxt:       .org    4                               -- Simple BMW (align 2)
 --  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
 
 _Int:
-    BRV2    _Psh_IL, Psh, WR,,, IPH                  -- Push IPH
+    BRV0    _Psh_IPL, Psh, WR,,, IPH, Ld_N          -- Push IPH
 
-_Psh_IL:
-    FTCH    $, Psh, WR,,, IPL                        -- Push IPL
+_Psh_IPL:
+    BRV2    _Get_Vector, Psh, WR,,, IPL, Ld_N       -- Push IPL
+_Get_Vector:
+    FTCH    $, Mar, RD,, LdKL,,,,,, Ack             -- Read Indirect Dst Ptr Lo
+    FTCH    $, Nxt, RD,, LdKH,,,,,, Ack             -- Read Indirect Dst Ptr Hi
 --
-    FTCH    $, Vec, RD,, LdKL,,,,,, Ack              -- Read Indirect Dst Ptr Lo
-    FTCH    $, Nxt, RD,, LdKH,,,,,, Ack              -- Read Indirect Dst Ptr Hi
---
-    BRV1    $, Vec, IF,, ClrK                        -- Instruction Fetch
+    BRV1    $, Vec, IF,, ClrK                       -- Instruction Fetch
 
 --------------------------------------------------------------------------------
 --  Read Word - LDY
@@ -285,8 +305,8 @@ _WrW:
 --  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
 
 _Rtn:
-    FTCH    $, Pop, RD,, LdKH                        -- Pop PCH
-    BRV1    $, Rtn, IF,, ClrK                        -- Execute RTS
+    FTCH    $, Pop, RD,, LdKH,, IncX                -- Pop PCH
+    BRV1    $, Rtn, IF,, ClrK,, IncX                -- Execute RTS
 
 --------------------------------------------------------------------------------
 --  Jump To Subroutine - JSR off         
@@ -294,8 +314,8 @@ _Rtn:
 --  I   BA, NA, IO, Op, DI, DO, XP, YP, AU, CC, IAck
 
 _Bsr:
-    FTCH    $, Psh, WR,,, IPL, Ld_N                  -- Psh PCL
-    BRV1    $, Rel, IF,, ClrK                        -- Instruction Fetch
+    FTCH    $, Psh, WR,,, IPL, Ld_N                 -- Psh PCL
+    BRV1    $, Rel, IF,, ClrK                       -- Instruction Fetch
 
 --------------------------------------------------------------------------------
 --  End of Microprogram Routines for Normal Instructions
@@ -323,9 +343,9 @@ _INV:
 _LDK:
     BRV3    $, Inc, IF,, ClrK,,,, LDA
 _LDL:
-    BMW     _Nxt, Lcl, RD,, LdKL
+    BMW     _Nxt, Lcl, RD, LdOp, LdKL,,,, LDA
 _LDN:
-    BMW     _Nxt, Non, RD,, LdKL
+    BMW     _Nxt, Non, RD, LdOp, LdKL,,,, LDA
 _STL:
     BMW     _Nxt, Lcl, WR,,, ALU
 _STN:
@@ -339,14 +359,14 @@ _STY:
     BRV0    _WrW, Lcl, WR,,, YPL
 _BNE:
     BRV1    _Nxt, Rel, IF,, ClrK,,,,, NE
-_BGT:
-    BRV1    _Nxt, Rel, IF,, ClrK,,,,, GT
+_BPL:
+    BRV1    _Nxt, Rel, IF,, ClrK,,,,, PL
 _BNC:
     BRV1    _Nxt, Rel, IF,, ClrK,,,,, NC
 _ADJ:
-    BRV1    _Nxt, Inc, IF,,,, AdjX
+    BRV1    _Nxt, Inc, IF,, ClrK,, AdjX
 _RTS:
-    BRV0    _Rtn, Lcl, RD,, LdKL,, Ld_N
+    BRV0    _Rtn, Lcl, RD,, LdKL,, AdjX
 _JSR:
     BRV0    _Bsr, Psh, WR,,, IPH, Ld_N
 

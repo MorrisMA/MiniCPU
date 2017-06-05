@@ -55,7 +55,16 @@
 //
 //  1.10    17F03   MAM     Modified port list to bring out the Vector Pull
 //                          signal added to the EU. EU generates VP when the
-//                          vector is being read. 
+//                          vector is being read.
+//
+//  1.20    17F04   MAM     Modified to push the Ld_Y signal delay register into
+//                          the PCU's YReg module. This move precipated by the
+//                          need to add a delayed ALU Op(eration) register. The
+//                          ALU Op delay register is required to post the ALU
+//                          operation that must be excuted after the required
+//                          operand from data memory is available in KI.
+//
+//  1.21    17F05   MAM     Updated value of pIntHndlr parameter. Moved VP port.
 //
 // Additional Comments: 
 //
@@ -65,16 +74,16 @@ module MiniCPU_Core #(
     parameter pMiniCPU_uPgm = "MiniCPU_uPROM.mif",   // Microprogram File
     parameter pAddrWidth    = 6,    // Original F9408 => 10-bit Address
     parameter pRstAddrs     = 1,    // Original Reset Address => 0
-    parameter pIntHndlr     = 3     // _Int Microroutine Address
+    parameter pIntHndlr     = 5     // _Int Microroutine Address
 )(
     input   Rst,
     input   Clk,
 
     output  Done,
-    output  VP,
 
     input   Int,
     output  Ack,
+    output  VP,
     input   [15:0] Vector,
 
     input   Rdy,
@@ -107,10 +116,11 @@ wire    AdjX, IncX, Ld_N, Ld_X;
 wire    SwpY, St_Y, Ld_Y;
 wire    [15:0] IP, XP, YP;
 
+wire    LdOp;
 wire    [4:0] AUOp;
 wire    [7:0] DO, A, B;
 
-wire    NC, GT, NE;
+wire    NC, PL, NE;
 wire    C, N, Z;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,7 +132,7 @@ wire    C, N, Z;
 
 always @(*)
 begin
-    casex({NC, GT, NE})
+    casex({NC, PL, NE})
         3'b1xx  : CC <= ~C;
         3'b01x  : CC <= ~N;
         3'b001  : CC <= ~Z;
@@ -181,7 +191,6 @@ MiniCPU_EU  #(
                 .IR(IR),
                 
                 .Done(Done),
-                .VP(VP),
                 
                 .BRV3(BRV3), 
                 .BRV2(BRV2), 
@@ -193,7 +202,7 @@ MiniCPU_EU  #(
                 .Rd(Rd), 
                 .Wr(Wr), 
                 
-                .Exe(),
+                .LdOp(LdOp),
                 
                 .LdKH(LdKH), 
                 .LdKL(LdKL), 
@@ -217,15 +226,13 @@ MiniCPU_EU  #(
                 .AUOp(AUOp), 
                 
                 .NC(NC), 
-                .GT(GT), 
+                .PL(PL), 
                 .NE(NE), 
                 
-                .Ack(Ack)
+                .Ack(Ack),
+                .VP(VP)
             );
-            
-reg dLd_Y;
-always @(posedge Clk) dLd_Y <= #1 ((Rst) ? 0 : Ld_Y);
-
+                        
 MiniCPU_PCU PC (
                 .Rst(Rst), 
                 .Clk(Clk),
@@ -251,7 +258,7 @@ MiniCPU_PCU PC (
                 .Ld_X(Ld_X), 
                 .XDI({A, B}),
 
-                .Ld_Y(dLd_Y), 
+                .Ld_Y(Ld_Y), 
                 .St_Y(St_Y), 
                 .SwpY(SwpY),
 
@@ -268,6 +275,9 @@ MiniCPU_ALU AU (
                 
                 .Rdy(Rdy), 
 
+                .IF(IF),
+                .LdOp(LdOp),
+                
                 .Op(AUOp),
                 
                 .XP(XP), 

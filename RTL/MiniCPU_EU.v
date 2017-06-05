@@ -88,6 +88,15 @@
 //                          on (|Via). Added VP output to signal when vector is
 //                          being read.
 //
+//  1.20    17F05   MAM     Modified the mnemonic for BGT to BPL. Changed the
+//                          ALU Control Field from Exe to LdOp, which loads the
+//                          ALU Operation Delay Register. The delayed operation
+//                          is executed during the instruction fetch cycle of
+//                          following instruction.
+//
+//  1.21    17F05   MAM     Modified the Vector Pull output to be function of 
+//                          the interrupt acknowledge signal, Ack, and Rst.
+//
 // Additional Comments: 
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,7 +105,7 @@ module MiniCPU_EU #(
     parameter pMiniCPU_uPgm = "MiniCPU_uPROM.mif",   // Microprogram File
     parameter pAddrWidth    = 6,    // Original F9408 => 10-bit Address
     parameter pRstAddrs     = 1,    // Original Reset Address => 0
-    parameter pIntHndlr     = 6'd3  // _Int Microroutine Address
+    parameter pIntHndlr     = 6'd5  // _Int Microroutine Address
 )(
     input   Rst,                    // System Reset
     input   Clk,                    // System Clock
@@ -108,8 +117,7 @@ module MiniCPU_EU #(
     input   [4:0] IR,               // Instruction Register (Direct/Indirect)               
     
     output  Done,                   // Instruction Fetch, Execution Complete
-    output  reg VP,                 // Interrupt Vector Pull
-    
+
     output  BRV3,                   // Interruptable Instruction Fetch
     output  BRV2,                   // Begin Interrupt Service, Capture Vector
     output  BRV1,                   // Non-interruptable Instruction Fetch
@@ -122,7 +130,7 @@ module MiniCPU_EU #(
     output  Rd,                     // Data Memory Read
     output  Wr,                     // Data Memory Write
     
-    output  Exe,                    // Delayed ALU Execution Command (Not Used)
+    output  LdOp,                   // Load ALU Op delay register
     
     output  LdKH,                   // Load KI[15:8] from DI
     output  LdKL,                   // Load KI[ 7:0] from DI
@@ -146,10 +154,12 @@ module MiniCPU_EU #(
     output  [4:0] AUOp,             // ALU Operation
     
     output  NC,                     // Condition Code Test: ~C
-    output  GT,                     // Condition Code Test: ~N
+    output  PL,                     // Condition Code Test: ~N
     output  NE,                     // Condition Code Test: ~Z
     
-    output  Ack                     // Interrupt Acknowledge
+    output  Ack,                    // Interrupt Acknowledge
+    
+    output  VP                      // Vector Pull
 );
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -167,21 +177,17 @@ reg     [47:0] ROM [63:0];
 reg     [47:0] uPL;                 // Microprogram Pipeline Register
 wire    [ 5:0] uBA;                 // Microprogram Branch Address Field
 
+reg     dRst;                       // Delayed Rst; extends module reset 1 cycle
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  Implementation
 //
 
+always @(posedge Clk) dRst <= #1 Rst;
+
 assign Done = (Via[0]);             // Instruction Fetch, Execution Complete
 
-always @(posedge Clk)
-begin
-    if(Rst)
-        VP <= #1 0;
-    else if(Rdy)
-        VP <= #1 (Ack & LdKL);
-end
-        
 assign BRV3 = (Via == 2'b11);       // Interruptable Instruction Fetch
 assign BRV2 = (Via == 2'b10);       // Begin Interrupt Service, Capture Vector
 assign BRV1 = (Via == 2'b01);       // Non-interruptable Instruction Fetch
@@ -245,7 +251,7 @@ assign NAOp = uPL[35:28];       // Next Address Operation                   (8)
 assign IF   = uPL[27];          // Program Memory Read (Instruction Fetch)  (1)
 assign Rd   = uPL[26];          // Data Memory Read                         (1)
 assign Wr   = uPL[25];          // Data Memory Write                        (1)
-assign Exe  = uPL[24];          // Execute Instruction                      (1)          
+assign LdOp = uPL[24];          // Load ALU Op Delay Register               (1)          
 assign LdKH = uPL[23];          // Load KI[15:8] from DI                    (1)
 assign LdKL = uPL[22];          // Load KI[ 7:0] from DI                    (1)
 assign ClrK = uPL[21];          // Clear KI[15:4] on load from DI[3:0]      (1)
@@ -263,8 +269,10 @@ assign St_Y = uPL[10];          // YP <= YS, YS <= YS                       (1)
 assign Ld_Y = uPL[ 9];          // YP <= KI                                 (1)
 assign AUOp = uPL[ 8:4];        // ALU Operation Select                     (5)
 assign NC   = uPL[ 3];          // CC Select: ~C                            (1)
-assign GT   = uPL[ 2];          // CC Select: ~N                            (1)
+assign PL   = uPL[ 2];          // CC Select: ~N                            (1)
 assign NE   = uPL[ 1];          // CC Select: ~Z                            (1)
 assign Ack  = uPL[ 0];          // Interrupt Acknowledge Cycle Start        (1)
+
+assign VP = ~(Rst | dRst) & Ack;    // Vector Pull
 
 endmodule

@@ -62,6 +62,11 @@
 //
 //  0.00    17E21   MAM     Initial release.
 //
+//  1.00    17F04   MAM     Pulled into the module the external delay register
+//                          for the Ld_Y signal. A delay is necessary so that
+//                          KI register can capture the hight byte of the data
+//                          being read from memory.
+//
 // Additional Comments: 
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,14 +88,33 @@ module MiniCPU_YPtr (
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  Declarations
+//
+
+reg     dLd_Y;
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  Implementation
 //
+
+//  Delay Ld_Y one cycle to allow KH to be loaded from MDI
+
+always @(posedge Clk)
+begin
+    if(Rst)
+        dLd_Y <= #1 0;
+    else if(Rdy)
+        dLd_Y <= #1 Ld_Y;
+end
+
+//  {YP, YS} Pointer Stack
 
 always @(posedge Clk)
 begin
     if(Rst)
         {YP, YS} <= #1 0;
-    else if(Rdy & Ld_Y)
+    else if(Rdy & dLd_Y)
         {YP, YS} <= #1 {DI, YP};
     else if(Rdy & St_Y)
         {YP, YS} <= #1 {YS, YS};

@@ -131,7 +131,7 @@ completion of all instructions except the PFX and NFX prefix instructions.**)
     8x  - LDY   : Load Y            Load Non-Local Pointer from workspace + KI.
     9x  - STY   : Store Y           Store Non-Local Pointer at workspace + KI.
     Ax  - BNE   : Branch if ~Z      Branch relative to IP if accumulator <> 0.
-    Bx  - BGT   : Branch if ~N      Branch relative to IP if accumulator positive.
+    Bx  - BPL   : Branch if ~N      Branch relative to IP if accumulator positive.
     Cx  - BNC   : Branch if ~C      Branch relative to IP if Carry == 0.
     Dx  - ADJ   : Adjust Workspace  Workspace Pointer adjusted by operand register.
     Ex  - RTS   : Return Subroutine Adjust workspace pointer by value of operand
@@ -173,7 +173,7 @@ instruction timing.)
     8x  - LDY   : 3
     9x  - STY   : 3
     Ax  - BNE   : 1
-    Bx  - BGT   : 1
+    Bx  - BPL   : 1
     Cx  - BNC   : 1
     Dx  - ADJ   : 1
     Ex  - RTS   : 3
