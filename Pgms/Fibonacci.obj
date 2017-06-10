@@ -1,0 +1,68 @@
+                    --
+                    --  Fibonacci Series Generator Program for MiniCPU 8-bit CPU
+                    --
+0002: 0F    # (1)   _Start: pfx #F
+0003: 30    # (1)           ldc #0
+0004: 21    # (1)           xab
+0005: 0F    # (1)           pfx #F      -- ldc #-1
+0006: 3F    # (1)           ldc #F
+0007: 22    # (1)           xch
+                    --
+                    --  Initialize Fibonacci Series: F[0] = 0; F[1] = 1
+                    --
+0008: 30    # (1)           ldc #0
+0009: 63    # (2)           stl 3
+000A: 62    # (2)           stl 2
+000B: 61    # (2)           stl 1
+000C: 31    # (1)           ldc #1
+000D: 60    # (2)           stl 0
+                    --
+                    --  Initialize Loop Counter
+                    --
+000E: 01    # (1)           pfx #1      -- ldc #23
+000F: 37    # (1)           ldc #7
+0010: 10    # (1)           nfx #0      -- stl -1
+0011: 6F    # (2)           stl 15
+                    --
+                    --  Computation Loop: F[n] = F[n-1] + F[n-2]
+                    --
+0012: 10    # (1)   _Loop:  nfx #0      -- ldl  -1      # 
+0013: 4F    # (2)           ldl 15
+0014: A3    # (1)           bne 3       -- bne _Cont    # if(LpCntr <> 0) continue 
+0015: 24    # (1)           clc
+0016: 11    # (1)           nfx #1      -- bnc _Start   # Repeat Program
+0017: CA    # (1)           bnc A
+                    --
+                    --  Decrement Loop Count, allocate space on stack and save Loop Count
+                    --
+0018: 21    # (1)   _Cont:  xab         -- Put current loop count in B
+0019: 30    # (1)           ldc #0
+001A: 21    # (1)           xab         -- Put Loop Count in A and 0 in B
+001B: 24    # (1)           clc         -- Decrement Loop Count
+001C: 27    # (1)           sbc
+001D: 10    # (1)           nfx #0      -- ldc #-2      # allocate space for new fibonacci number
+001E: DE    # (1)           adj #14
+001F: 10    # (1)           nxf #0      -- stl #-1      # Store Loop Count below workspace pointer
+0020: 6F    # (2)           stl 15
+                    --
+                    --  Calculate new Fibonacci number
+                    --
+0021: 44    # (2)           ldl 4       -- load B with lo(F[n-2])
+0022: 21    # (1)           xab
+0023: 42    # (2)           ldl 2       -- load A with lo(F[n-1])
+0024: 24    # (1)           clc         -- add lo(F[n-1]) + lo(F[n-2])
+0025: 26    # (1)           adc
+0026: 60    # (2)           stl 0       -- save lo(F[n])
+0027: 45    # (2)           ldl 5       -- load B with hi(F[n-2])
+0028: 21    # (1)           xab
+0029: 43    # (2)           ldl 3       -- load A with hi(F[n-1])
+002A: 26    # (1)           adc         -- add hi(F[n-1]) + hi(F[n-2])
+002B: 61    # (2)           stl 1       -- save hi(F[n])
+                    --
+                    --  End of Loop
+                    --
+002C: 24    # (1)           clc
+002D: 11    # (1)           nfx #1      -- bnc _Loop
+002E: C3    # (1)           bnc 3
+
+002F:                

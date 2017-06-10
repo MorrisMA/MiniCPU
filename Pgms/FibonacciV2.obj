@@ -1,0 +1,66 @@
+                    --
+                    --  Fibonacci Series Generator Program for MiniCPU 8-bit CPU
+                    --
+0002: 00    # (1)   _Init:  ldc #0
+0003: 21    # (1)           xab         -- Set B = $00
+0004: 10    # (1)           nfx #0      -- ldc #-16
+0005: 3F    # (1)           ldc #F
+0006: 22    # (1)           xch         -- Set XP <= $FF00, {A, B} = XP
+                    --
+                    --  Initialize Fibonacci Series: F[0] = 0; F[1] = 1
+                    --
+0007: 30    # (1)   _Start: ldc #0
+0008: 60    # (2)           stl 0
+0009: 61    # (2)           stl 1
+000A: 63    # (2)           stl 3
+000B: 31    # (1)           ldc #1
+000C: 62    # (2)           stl 2
+                    --
+                    --  Initialize Loop Counter
+                    --
+000D: 01    # (1)           pfx #1      -- ldc #23
+000E: 37    # (1)           ldc #7
+000F: 64    # (2)           stl 4
+                    --
+                    --  Computation Loop: F[n] = F[n-1] + F[n-2]
+                    --
+0010: 44    # (1)   _Loop:  ldl 4
+0011: A3    # (1)           bne 3       -- bne _Cont   # if(LpCntr <> 0) continue 
+0012: 24    # (1)           clc
+0013: 11    # (1)           nfx #1      -- bnc _Init   # Repeat Program
+0014: CD    # (1)           bnc 13
+                    --
+                    --  Decrement Loop Count and Store above new F[n]
+                    --
+0015: 21    # (1)   _Cont:  xab         -- Put current loop count in B
+0016: 30    # (1)           ldc #0
+0017: 21    # (1)           xab         -- Put Loop Count in A and 0 in B
+0018: 24    # (1)           clc         -- Decrement Loop Count
+0019: 27    # (1)           sbc
+001A: 66    # (2)           stl 6       -- Store New Loop Count above new F[n]
+                    --
+                    --  Calculate new Fibonacci number: F[n]
+                    --
+001B: 40    # (2)           ldl 0       -- load B with lo(F[n-2])
+001C: 21    # (1)           xab
+001D: 42    # (2)           ldl 2       -- load A with lo(F[n-1])
+001E: 24    # (1)           clc         -- add lo(F[n-1]) + lo(F[n-2])
+001F: 26    # (1)           adc
+0020: 64    # (2)           stl 4       -- save lo(F[n])
+0021: 41    # (2)           ldl 1       -- load B with hi(F[n-2])
+0022: 21    # (1)           xab
+0023: 43    # (2)           ldl 3       -- load A with hi(F[n-1])
+0024: 26    # (1)           adc         -- add hi(F[n-1]) + hi(F[n-2])
+0025: 65    # (2)           stl 5       -- save hi(F[n])
+                    --
+                    --  Adjust workspace deleting F[n-2] at Mem[1,0]
+                    --
+0026: D2    # (1)           adj #2      -- Remove F[n-2]
+                    --
+                    --  End of Loop
+                    --
+0027: 24    # (1)           clc
+0028: 11    # (1)           nfx #1      -- bnc _Loop
+0029: C6    # (1)           bnc 3
+
+002A:                
